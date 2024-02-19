@@ -20,15 +20,22 @@ import Brick.Types (Widget)
 import Brick.Widgets.Core
 
 import Lens.Micro.TH
+import Lens.Micro
 import qualified Brick.Widgets.List as L
 
 type RName = String
 
-data Model e = Model {
+type CustomEvent = ()
+
+data Model = Model {
       exampleText :: String
-    , listOfStatements :: L.List RName Text
-    , _myForm :: Form StringData e RName
+    , _listOfStatements :: L.List RName Text
+    , _myForm :: Form StringData CustomEvent RName
+    , _currentTextAction :: TextAction
     }
+
+data TextAction = MkTextAction { prompt :: Text
+                               , action :: Model -> Model}
 
 data StringData = MkStringData {
     _innerData :: Text
@@ -41,14 +48,33 @@ main :: IO ()
 main = do
     let initialState = Model {
       exampleText = "Hello"
-    , listOfStatements = L.list "StatementList" (Vec.fromList ["My statement", "My second statement"]) 1
-    , _myForm = mkForm (MkStringData {_innerData = "Test string 2"})
+    , _listOfStatements = L.list "StatementList" (Vec.fromList ["My statement", "My second statement"]) 1
+    , _myForm = mkForm (MkStringData {_innerData = ""})
+    , _currentTextAction = initialAction
     }
-        
+
     finalState <- defaultMain myApp initialState
     return ()
+    where initialAction = MkTextAction { prompt =  "Please type in a username to grant them access to the database"
+                                       , action = addGrantAllMessage}
 
-myApp :: App (Model e) e RName
+addGrantAllMessage :: Model -> Model
+addGrantAllMessage = (currentTextAction .~ newAction)
+                   . resetInput
+                   . \model -> addToStatementList ("GRANT ALL TO " <> inputStatement model <> " DUDE, IT'LL BE FINE") model
+  where
+    newAction = askForPassword
+
+resetInput :: Model -> Model
+resetInput = myForm %~ updateFormState (MkStringData "")
+
+askForPassword :: TextAction
+askForPassword = MkTextAction {
+  prompt = "Please type in your secure password"
+, action = \model -> addToStatementList ("USE PASSWORD " <> inputStatement model <> " FOR THE GRANT") model
+}
+
+myApp :: App Model e RName
 myApp = App { M.appDraw = drawUI
             , M.appChooseCursor = M.showFirstCursor
             , M.appHandleEvent = appEvent
@@ -56,29 +82,36 @@ myApp = App { M.appDraw = drawUI
             , M.appAttrMap = const (A.attrMap VA.defAttr [])
             }
 
-drawUI :: Model e -> [Widget RName]
-drawUI model = [(leftPanel <=> BB.hBorder <=> bottomLeft) <+> BB.vBorder <+> rightPanel]
+drawUI :: Model -> [Widget RName]
+drawUI model = [(leftPanel <=> BB.hBorder <=> promptPanel <=> BB.hBorder <=> inputBox) <+> BB.vBorder <+> rightPanel]
   where
-    bottomLeft = renderForm (_myForm model)
+    inputBox = renderForm (_myForm model)
     leftPanel = C.center $ str $ "HELLO " <> exampleText model
-    rightPanel = L.renderList renderStatement False $ listOfStatements model
-    renderStatement _ statement = txt statement 
+    rightPanel = L.renderList renderStatement False $ _listOfStatements model
+    renderStatement _ statement = txt statement
+    promptPanel = txt $ prompt $ _currentTextAction model
 
 mkForm :: StringData -> Form StringData e RName
 mkForm = newForm [editTextField innerData "Test String" (Just 3)]
 
 
-addInputToList :: Model e -> Model e
-addInputToList model = model { listOfStatements = L.listInsert 0 inputStatement (listOfStatements model)
-                             , _myForm = updateFormState (MkStringData "") $ _myForm model
-                             }
-  where inputStatement = _innerData $ formState $ _myForm model
+addToStatementList :: Text -> Model -> Model
+addToStatementList statement = listOfStatements %~ L.listInsert 0 statement
 
-appEvent :: T.BrickEvent RName e -> T.EventM RName (Model e) ()
+addInputToList :: Model -> Model
+addInputToList model = model
+                     & listOfStatements %~ L.listInsert 0 (inputStatement model)
+                     & myForm %~ updateFormState (MkStringData "")
+                     
+inputStatement :: Model -> Text
+inputStatement = (^. innerData) . formState . (^. myForm)
+               
+
+appEvent :: T.BrickEvent RName e -> T.EventM RName Model ()
 appEvent (T.VtyEvent e) =
     case e of
         V.EvKey V.KEsc [] -> do M.halt
-        V.EvKey (V.KChar 'p') [] -> modify $ \model -> model {exampleText = "Peter"}
-        V.EvKey (V.KChar 'r') [] -> modify $ \model -> model {exampleText = "Randy"}
-        V.EvKey V.KEnter [] -> modify $ addInputToList
+        -- V.EvKey (V.KChar 'p') [] -> modify $ \model -> model {exampleText = "Peter"}
+        -- V.EvKey (V.KChar 'r') [] -> modify $ \model -> model {exampleText = "Randy"}
+        V.EvKey V.KEnter [] -> modify $ \model -> (action . _currentTextAction) model model
         _ -> T.zoom myForm (handleFormEvent $ T.VtyEvent e)
