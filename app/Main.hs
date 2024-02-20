@@ -52,11 +52,6 @@ drawUI model = [(leftPanel <=> BB.hBorder <=> promptPanel <=> BB.hBorder <=> inp
 
 mkForm :: StringData -> Form StringData e RName
 mkForm = newForm [editTextField innerData "Test String" (Just 3)]
-
-addInputToList :: Model -> Model
-addInputToList model = model
-                     & listOfStatements %~ L.listInsert 0 (inputStatement model)
-                     & myForm %~ updateFormState (MkStringData "")
                
 appEvent :: T.BrickEvent RName e -> T.EventM RName Model ()
 appEvent (T.VtyEvent e) =
