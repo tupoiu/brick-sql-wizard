@@ -30,6 +30,16 @@
   (major1) == 2 && (major2) <  3 || \
   (major1) == 2 && (major2) == 3 && (minor) <= 1)
 #endif /* MIN_VERSION_brick */
+/* package containers-0.6.7 */
+#ifndef VERSION_containers
+#define VERSION_containers "0.6.7"
+#endif /* VERSION_containers */
+#ifndef MIN_VERSION_containers
+#define MIN_VERSION_containers(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  6 || \
+  (major1) == 0 && (major2) == 6 && (minor) <= 7)
+#endif /* MIN_VERSION_containers */
 /* package microlens-0.4.13.1 */
 #ifndef VERSION_microlens
 #define VERSION_microlens "0.4.13.1"

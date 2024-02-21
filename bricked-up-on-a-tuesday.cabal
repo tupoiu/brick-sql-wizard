@@ -37,6 +37,7 @@ executable bricked-up-on-a-tuesday
         microlens,
         microlens-th,
         text,
-        vector
+        vector,
+        containers
     hs-source-dirs:   app, src
     default-language: Haskell2010
