@@ -15,6 +15,7 @@ import qualified Brick.Widgets.Border as BB
 import qualified Graphics.Vty as V
 import qualified Graphics.Vty.Attributes as VA
 import Data.Text (Text(..))
+import qualified Data.Text as Text
 import qualified Data.Vector as Vec
 import qualified Data.Map as Map
 import Brick.Forms
@@ -60,9 +61,11 @@ mkForm = newForm [editTextField innerData "Test String" (Just 3)]
 appEvent :: T.BrickEvent RName e -> T.EventM RName Model ()
 appEvent (T.VtyEvent e) =
     case e of
-        V.EvKey V.KEsc [] -> do M.halt
-        -- V.EvKey (V.KChar 'p') [] -> modify $ \model -> model {exampleText = "Peter"}
-        -- V.EvKey (V.KChar 'r') [] -> modify $ \model -> model {exampleText = "Randy"}
+        V.EvKey V.KEsc [] -> do 
+          model <- T.get
+          let sqlText = Text.unpack $ Text.intercalate "\n" $ Vec.toList $ L.listElements $ model ^. listOfStatements 
+          liftIO $ writeFile "sql_wizard_output.sql" sqlText
+          M.halt
         V.EvKey V.KEnter [] -> do
             model <- T.get
             newModel <- liftIO $ performAction model
