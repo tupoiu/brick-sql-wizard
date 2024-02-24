@@ -20,44 +20,45 @@ compose = foldr (.) id
 type Username = String
 type Password = String
 
-chooseEnvVars :: TextAction
-chooseEnvVars = MkIOTextAction {
-  prompt = "Please type in the EnvVars to look for on your machine, space separated"
+chooseDBProvider :: TextAction
+chooseDBProvider = MkIOTextAction {
+  prompt = "Choose a database provider: " <> Text.intercalate " | " ["[1] PostgreSQL"]
 , ioAction = act
 }
   where 
-    act :: Model -> IO Model
     act model = do
+      let 
+        envVarNames =
+          case inputStatement model of
+            "1" -> ["PGHOST", "PGPASSWORD"]
+            _ -> []
       (succs, misses) <- getEnvVars envVarNames
-      return $ dealWithMissingEnvVars (succs, misses)
-      where 
-        envVarNames = words $ Text.unpack $ inputStatement model
+      return $ case misses of
+        [] -> model
+          & (windowText .~ (Text.pack $ "Env vars: " ++ show succs))
+          . (envVarMap .~ Map.fromList succs)
+          . (currentTextAction .~ home)
+          . resetInput
 
-        getEnvVars :: [String] -> IO ([(String,String)], [String])
-        getEnvVars [] = return ([],[])
-        getEnvVars (name:rest) = do
-          maybeVar <- lookupEnv name
-          (succs, misses) <- getEnvVars rest
-          return $ case maybeVar of
-            Just var -> ((name, var) : succs, misses)
-            Nothing -> (succs, name : misses)
-
-        dealWithMissingEnvVars :: ([(String,String)], [String]) -> Model
-        dealWithMissingEnvVars (succs, misses) =
-          case misses of
-            [] -> model
-              & (windowText .~ (Text.pack $ "Env vars: " ++ show succs))
-              . (envVarMap .~ Map.fromList succs)
-              . (currentTextAction .~ home)
-              . resetInput
-
-            _ -> resetInput $ (currentTextAction .~ (resetAction misses)) model
-
+        _ -> model
+          & resetInput 
+          . (currentTextAction .~ (resetAction misses))
+      where
         resetAction :: [String] -> TextAction
         resetAction misses = MkIOTextAction {
           prompt = Text.pack $ "Failed to find Env vars: " <> intercalate ", " misses <> " try again"
         , ioAction = act
         }
+
+
+getEnvVars :: [String] -> IO ([(String,String)], [String])
+getEnvVars [] = return ([],[])
+getEnvVars (name:rest) = do
+  maybeVar <- lookupEnv name
+  (succs, misses) <- getEnvVars rest
+  return $ case maybeVar of
+    Just var -> ((name, var) : succs, misses)
+    Nothing -> (succs, name : misses)
 
 home :: TextAction
 home = MkTextAction {

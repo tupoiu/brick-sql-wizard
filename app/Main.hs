@@ -36,7 +36,7 @@ main = do
     }
     finalState <- defaultMain myApp initialState
     return ()
-    where initialAction = ControlFlow.chooseEnvVars
+    where initialAction = ControlFlow.chooseDBProvider
 
 myApp :: App Model e RName
 myApp = App { M.appDraw = drawUI
