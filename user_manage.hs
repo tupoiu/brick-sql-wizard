@@ -1,3 +1,5 @@
+-- Randy's old version without UI
+
 import Control.Monad (when)
 import Data.Char (toLower)
 import Data.List (isInfixOf)
